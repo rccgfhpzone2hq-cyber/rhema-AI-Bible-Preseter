@@ -21,8 +21,9 @@ function uint8ToBase64(bytes: Uint8Array | Uint8ClampedArray): string {
   return btoa(parts.join(""))
 }
 
-/** Read output ID from URL query param (?output=main or ?output=alt). Defaults to "main". */
-const OUTPUT_ID = new URLSearchParams(window.location.search).get("output") ?? "main"
+/** Read output ID from window label (broadcast or broadcast-alt). */
+const label = getCurrentWebviewWindow().label
+const OUTPUT_ID = label === "broadcast-alt" ? "alt" : "main"
 
 interface BroadcastPayload {
   theme: BroadcastTheme

@@ -238,9 +238,13 @@ impl ActiveNdiSession {
         }
 
         let library_path = resolve_library_path()?;
+        log::info!("NDI: loading library from {}", library_path.display());
         // SAFETY: library_path was validated to exist by resolve_library_path()
         let library = unsafe { Library::new(&library_path) }
-            .map_err(|e| NdiError::LibraryLoad(e.to_string()))?;
+            .map_err(|e| {
+                log::error!("NDI: failed to load library {}: {}", library_path.display(), e);
+                NdiError::LibraryLoad(e.to_string())
+            })?;
 
         let initialize_fn = *load_symbol::<NdiInitializeFn>(&library, b"NDIlib_initialize\0", "NDIlib_initialize")?;
         let ndi_destroy_fn = *load_symbol::<NdiDestroyFn>(&library, b"NDIlib_destroy\0", "NDIlib_destroy")?;
@@ -403,12 +407,15 @@ fn resolve_library_path() -> Result<PathBuf, NdiError> {
             continue;
         }
         let absolute = base.join(candidate);
+        log::debug!("NDI: checking for library at {}", absolute.display());
         if absolute.exists() {
             return Ok(absolute);
         }
     }
 
-    Err(NdiError::LibraryNotFound(candidates.join(", ")))
+    let err = NdiError::LibraryNotFound(candidates.join(", "));
+    log::error!("NDI: library not found in any of: {:?}", candidates);
+    Err(err)
 }
 
 fn load_symbol<'a, T>(

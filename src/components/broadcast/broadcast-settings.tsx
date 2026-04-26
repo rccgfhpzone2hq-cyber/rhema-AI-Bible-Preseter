@@ -31,6 +31,7 @@ import {
   RefreshCwIcon,
   RadioIcon,
 } from "lucide-react"
+import { toast } from "sonner"
 
 type OutputType = "display" | "ndi"
 
@@ -231,8 +232,10 @@ export function BroadcastSettings({
   }
 
   const handleToggleNdi = async () => {
+    console.log("NDI Toggle clicked. invoke exists:", !!invoke)
     try {
       if (ndiActive) {
+        console.log("Stopping NDI...")
         await invoke("stop_ndi", { outputId: "main" })
         syncNdiConfigToOutput("main", false, ndiFrameRate, ndiResolution)
         setNdiActive(false)
@@ -240,14 +243,18 @@ export function BroadcastSettings({
           await invoke("close_broadcast_window", { outputId: "main" }).catch(() => {})
         }
       } else {
+        console.log("Starting Main NDI: calling ensure_broadcast_window...")
         await invoke("ensure_broadcast_window", { outputId: "main" })
+        console.log("ensure_broadcast_window (main) success.")
         const request: NdiStartRequest = {
           sourceName: ndiSourceName,
           resolution: ndiResolution,
           frameRate: ndiFrameRate,
           alphaMode: ndiAlphaMode,
         }
+        console.log("Starting Main NDI: calling start_ndi with request:", request)
         const session = await invoke<NdiSessionInfo>("start_ndi", { outputId: "main", request })
+        console.log("start_ndi (main) success:", session)
         setNdiActive(true)
         useBroadcastStore.getState().syncBroadcastOutputFor("main")
         void emitTo("broadcast", "broadcast:ndi-config", {
@@ -261,8 +268,9 @@ export function BroadcastSettings({
           syncNdiConfigToOutput("main", true, ndiFrameRate, ndiResolution)
         }, 300)
       }
-    } catch {
-      // Command may not exist yet
+    } catch (error) {
+      console.error("Failed to toggle NDI:", error)
+      toast.error(`NDI Error: ${error}`)
     }
   }
 
@@ -321,8 +329,10 @@ export function BroadcastSettings({
   }
 
   const handleAltToggleNdi = async () => {
+    console.log("Alt NDI Toggle clicked. invoke exists:", !!invoke)
     try {
       if (altNdiActive) {
+        console.log("Stopping Alt NDI...")
         await invoke("stop_ndi", { outputId: "alt" })
         syncNdiConfigToOutput("alt", false, altNdiFrameRate, altNdiResolution)
         setAltNdiActive(false)
@@ -330,14 +340,18 @@ export function BroadcastSettings({
           await invoke("close_broadcast_window", { outputId: "alt" }).catch(() => {})
         }
       } else {
+        console.log("Starting Alt NDI: calling ensure_broadcast_window...")
         await invoke("ensure_broadcast_window", { outputId: "alt" })
+        console.log("ensure_broadcast_window (alt) success.")
         const request: NdiStartRequest = {
           sourceName: altNdiSourceName,
           resolution: altNdiResolution,
           frameRate: altNdiFrameRate,
           alphaMode: altNdiAlphaMode,
         }
+        console.log("Starting Alt NDI: calling start_ndi with request:", request)
         const session = await invoke<NdiSessionInfo>("start_ndi", { outputId: "alt", request })
+        console.log("start_ndi (alt) success:", session)
         setAltNdiActive(true)
         useBroadcastStore.getState().syncBroadcastOutputFor("alt")
         void emitTo("broadcast-alt", "broadcast:ndi-config", {
@@ -352,7 +366,8 @@ export function BroadcastSettings({
         }, 300)
       }
     } catch (error) {
-      console.warn("Failed to toggle alt NDI", error)
+      console.error("Failed to toggle alt NDI:", error)
+      toast.error(`NDI Alt Error: ${error}`)
     }
   }
 

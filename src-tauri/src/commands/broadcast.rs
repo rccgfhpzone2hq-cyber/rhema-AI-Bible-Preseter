@@ -16,9 +16,8 @@ fn window_label(output_id: &str) -> &'static str {
     }
 }
 
-/// Map `output_id` to broadcast-output.html URL with query param.
-fn window_url(output_id: &str) -> String {
-    format!("broadcast-output.html?output={output_id}")
+fn window_url(_output_id: &str) -> String {
+    "broadcast-output.html".to_string()
 }
 
 #[derive(Serialize)]
@@ -55,11 +54,14 @@ pub fn list_monitors(app: tauri::AppHandle) -> Result<Vec<MonitorInfo>, String> 
 
 /// Ensure the broadcast window for a given output exists (creates hidden if not).
 #[tauri::command]
-pub fn ensure_broadcast_window(app: tauri::AppHandle, output_id: String) -> Result<(), String> {
+pub async fn ensure_broadcast_window(app: tauri::AppHandle, output_id: String) -> Result<(), String> {
     let label = window_label(&output_id);
-    if app.get_webview_window(label).is_some() {
+    log::info!("Ensuring broadcast window for output '{}' (label: '{}')", output_id, label);
+    if let Some(window) = app.get_webview_window(label) {
+        log::info!("Window '{}' already exists", label);
         return Ok(());
     }
+    log::info!("Creating new hidden window for '{}' at {}", label, window_url(&output_id));
     WebviewWindowBuilder::new(
         &app,
         label,
@@ -71,12 +73,16 @@ pub fn ensure_broadcast_window(app: tauri::AppHandle, output_id: String) -> Resu
     .skip_taskbar(true)
     .focused(false)
     .build()
-    .map_err(|e| e.to_string())?;
+    .map_err(|e| {
+        log::error!("Failed to build broadcast window: {}", e);
+        e.to_string()
+    })?;
+    log::info!("Successfully created window '{}'", label);
     Ok(())
 }
 
 #[tauri::command]
-pub fn open_broadcast_window(
+pub async fn open_broadcast_window(
     app: tauri::AppHandle,
     output_id: String,
     monitor_index: usize,
