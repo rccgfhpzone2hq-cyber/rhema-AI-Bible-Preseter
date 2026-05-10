@@ -26,7 +26,7 @@ rhema-audio = { path = "../audio", optional = true }
 whisper-rs = { version = "0.16", features = ["metal"], optional = true }
 
 [target.'cfg(not(target_os = "macos"))'.dependencies]
-whisper-rs = { version = "0.16", optional = true }
+whisper-rs = { version = "0.16", features = ["cuda"], optional = true }
 
 [features]
 default = ["rest-fallback"]
