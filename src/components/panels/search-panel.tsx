@@ -172,7 +172,14 @@ export function SearchPanel() {
             .getElementById(`verse-${target.id}`)
             ?.scrollIntoView({ behavior: "smooth", block: "center" })
         }
-        panelRef.current?.focus()
+        // Only focus the panel if the user isn't actively typing anywhere.
+        // This prevents detections and auto-navigation from stealing focus mid-keystroke.
+        const activeEl = document.activeElement
+        const isInputActive = activeEl?.tagName === "INPUT" || activeEl?.tagName === "TEXTAREA"
+        
+        if (!isInputActive) {
+          panelRef.current?.focus()
+        }
       }).catch(console.error).finally(() => {
         useBibleStore.getState().setPendingNavigation(null)
       })
@@ -189,6 +196,12 @@ export function SearchPanel() {
   // Arrow key navigation
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      // Don't intercept arrow keys if we're typing in an input
+      const target = e.target as HTMLElement
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
+        return
+      }
+
       if (e.key === "ArrowLeft") {
         e.preventDefault()
         if (chapter > 1) {
@@ -307,13 +320,9 @@ export function SearchPanel() {
         verse: result.verse
       })
 
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          if (quickInputRef.current && document.activeElement !== quickInputRef.current) {
-            quickInputRef.current.focus()
-          }
-        })
-      })
+      // We removed the aggressive focus-restoration logic here because it was
+      // fighting with the user's intent if they tried to click away.
+      // The input maintains focus naturally during typing.
     }
 
     if ((result.stage === "chapter" || result.stage === "verse") && result.matchedBook && result.chapter) {
