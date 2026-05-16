@@ -631,7 +631,7 @@ function calculateMaxAvailableVerseHeight(
 
   switch (theme.reference.position) {
     case "above":
-      return textRect.height - referenceHeight
+      return textRect.height - referenceHeight - referenceGap
     case "below":
       return textRect.height - referenceHeight - referenceGap
     case "inline":
@@ -658,12 +658,13 @@ function calculateScaledFontSize(
   maxHeight: number
 ): number {
   const originalFontSize = theme.verseText.fontSize
-  const minFontSize = Math.max(8, originalFontSize * 0.3) // Don't go below 30% of original or 8px
+  // Lower the floor to allow more flexibility for long scriptures in small areas
+  const minFontSize = Math.min(originalFontSize, 12) 
 
   // Binary search for optimal font size
   let low = minFontSize
   let high = originalFontSize
-  let bestFit = originalFontSize
+  let bestFit = minFontSize // Fallback to minimum if nothing fits
 
   while (low <= high) {
     const mid = Math.floor((low + high) / 2)
@@ -873,7 +874,7 @@ export function computeVerseLayoutMetrics(
 
   const blockHeight =
     scaledTheme.reference.position === "above"
-      ? referenceHeight + verseHeight
+      ? referenceHeight + referenceGap + verseHeight
       : scaledTheme.reference.position === "below"
         ? verseHeight + referenceGap + referenceHeight
         : verseHeight + referenceHeight
@@ -888,7 +889,7 @@ export function computeVerseLayoutMetrics(
   let verseRect: VerseLayoutRect
   if (scaledTheme.reference.position === "above") {
     const refY = blockStartY
-    const verseY = blockStartY + referenceHeight
+    const verseY = blockStartY + referenceHeight + referenceGap
     referenceRect = rectForAlignedText(
       referenceAlign === "justify" ? "left" : referenceAlign,
       referenceDrawX,
@@ -1017,7 +1018,7 @@ function renderVerseImpl(
       ctx,
       scaledTheme,
       verse,
-      metrics.textAreaRect.width,
+      metrics.textRect.width, // CRITICAL: Use textRect width which accounts for padding
       maxAvailableVerseHeight
     )
 
