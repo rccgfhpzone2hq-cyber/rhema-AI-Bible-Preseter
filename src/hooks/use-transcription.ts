@@ -39,6 +39,7 @@ export const transcriptionActions = {
         deviceId: settings.audioDeviceId,
         gain: settings.gain,
         provider: settings.sttProvider,
+        strictDetection: settings.strictDetection,
       })
       transcript.setTranscribing(true)
     } catch (e) {

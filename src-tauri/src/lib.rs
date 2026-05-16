@@ -46,6 +46,7 @@ pub fn run() {
             commands::detection::reading_mode_status,
             commands::detection::stop_reading_mode,
             commands::audio::get_audio_devices,
+            commands::stt::has_env_deepgram_key,
             commands::stt::start_transcription,
             commands::stt::stop_transcription,
             commands::broadcast::list_monitors,

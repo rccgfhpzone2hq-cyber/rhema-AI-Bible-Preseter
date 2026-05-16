@@ -1,5 +1,5 @@
 import { create } from "zustand"
-import { emitTo } from "@tauri-apps/api/event"
+import { emitTo, listen } from "@tauri-apps/api/event"
 import { load, type Store } from "@tauri-apps/plugin-store"
 import type { BroadcastTheme, VerseRenderData } from "@/types"
 import { BUILTIN_THEMES } from "@/lib/builtin-themes"
@@ -109,14 +109,25 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
   loadThemes: () => {
     set({ themes: [...BUILTIN_THEMES] })
   },
-  saveTheme: (theme) =>
+  saveTheme: (theme) => {
     set((s) => ({
       themes: s.themes.some((t) => t.id === theme.id)
         ? s.themes.map((t) => (t.id === theme.id ? theme : t))
         : [...s.themes, theme],
-    })),
-  deleteTheme: (id) =>
-    set((s) => ({ themes: s.themes.filter((t) => t.id !== id || t.builtin) })),
+    }))
+    get().syncBroadcastOutput()
+  },
+  deleteTheme: (id) => {
+    set((s) => {
+      const nextThemes = s.themes.filter((t) => t.id !== id || t.builtin)
+      return {
+        themes: nextThemes,
+        activeThemeId: s.activeThemeId === id ? nextThemes[0]?.id : s.activeThemeId,
+        altActiveThemeId: s.altActiveThemeId === id ? nextThemes[0]?.id : s.altActiveThemeId,
+      }
+    })
+    get().syncBroadcastOutput()
+  },
   duplicateTheme: (id) => {
     const s = get()
     const source = s.themes.find((t) => t.id === id)
@@ -200,6 +211,7 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
   setDesignerOpen: (isDesignerOpen) => {
     if (!isDesignerOpen) {
       set({ isDesignerOpen, editingThemeId: null, draftTheme: null, selectedElement: null })
+      get().syncBroadcastOutput()
     } else {
       set({ isDesignerOpen })
     }
@@ -253,8 +265,10 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
         editingThemeId: customTheme.id,
         draftTheme: customTheme,
       }))
+      get().syncBroadcastOutput()
     } else {
       get().saveTheme(draftTheme)
+      get().syncBroadcastOutput()
     }
   },
   discardDraft: () => {
@@ -314,6 +328,11 @@ export function hydrateBroadcastThemes(): Promise<void> {
           )
         }, SAVE_DEBOUNCE_MS)
       })
+
+      // Ensure broadcast outputs sync their state when they finish loading
+      listen("broadcast:output-ready", () => {
+        useBroadcastStore.getState().syncBroadcastOutput()
+      }).catch(console.error)
     } catch {
       console.warn("[broadcast] Failed to load persisted themes, using defaults")
     }

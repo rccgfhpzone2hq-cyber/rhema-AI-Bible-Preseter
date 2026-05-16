@@ -14,6 +14,7 @@ interface SettingsState {
   cooldownMs: number
   onboardingComplete: boolean
   sttProvider: SttProvider
+  strictDetection: boolean
 
   setDeepgramApiKey: (key: string | null) => void
   setOpenaiApiKey: (key: string | null) => void
@@ -25,6 +26,7 @@ interface SettingsState {
   setCooldownMs: (ms: number) => void
   setOnboardingComplete: (complete: boolean) => void
   setSttProvider: (provider: SttProvider) => void
+  setStrictDetection: (strict: boolean) => void
 }
 
 export const useSettingsStore = create<SettingsState>((set) => ({
@@ -38,6 +40,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   cooldownMs: 2500,
   onboardingComplete: false,
   sttProvider: "deepgram",
+  strictDetection: false,
 
   setDeepgramApiKey: (deepgramApiKey) => set({ deepgramApiKey }),
   setOpenaiApiKey: (openaiApiKey) => set({ openaiApiKey }),
@@ -49,13 +52,13 @@ export const useSettingsStore = create<SettingsState>((set) => ({
   setCooldownMs: (cooldownMs) => set({ cooldownMs }),
   setOnboardingComplete: (onboardingComplete) => set({ onboardingComplete }),
   setSttProvider: (sttProvider) => set({ sttProvider }),
+  setStrictDetection: (strictDetection) => set({ strictDetection }),
 }))
 
 const PERSISTED_KEYS = [
   "deepgramApiKey",
   "openaiApiKey",
   "claudeApiKey",
-  "activeTranslationId",
   "audioDeviceId",
   "gain",
   "autoMode",
@@ -63,6 +66,7 @@ const PERSISTED_KEYS = [
   "cooldownMs",
   "onboardingComplete",
   "sttProvider",
+  "strictDetection",
 ] as const satisfies readonly (keyof SettingsState)[]
 
 type PersistedKey = (typeof PERSISTED_KEYS)[number]

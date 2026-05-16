@@ -195,10 +195,17 @@ function SpeechSection() {
     setSttProvider,
     deepgramApiKey,
     setDeepgramApiKey,
+    strictDetection,
+    setStrictDetection,
   } = useSettingsStore()
 
   const [keyValue, setKeyValue] = useState(deepgramApiKey ?? "")
   const [saved, setSaved] = useState(false)
+  const [hasEnvKey, setHasEnvKey] = useState(false)
+
+  useEffect(() => {
+    invoke<boolean>("has_env_deepgram_key").then(setHasEnvKey).catch(() => {})
+  }, [])
 
   const handleSaveKey = () => {
     setDeepgramApiKey(keyValue || null)
@@ -270,6 +277,11 @@ function SpeechSection() {
                 Key configured
               </Badge>
             )}
+            {!deepgramApiKey && hasEnvKey && (
+              <Badge variant="outline" className="text-[0.5rem] border-primary/30 text-primary">
+                Found in .env
+              </Badge>
+            )}
           </div>
           <div className="flex gap-2">
             <Input
@@ -296,6 +308,32 @@ function SpeechSection() {
           </p>
         </div>
       )}
+
+      {/* Strict Detection Toggle */}
+      <div className="flex flex-col gap-3 pt-4 border-t border-border">
+        <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          Detection Mode
+        </label>
+        
+        <label
+          className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors has-data-[state=checked]:border-primary/50 has-data-[state=checked]:bg-primary/5 has-data-[state=checked]:ring-1 has-data-[state=checked]:ring-primary/20 hover:border-muted-foreground/25`}
+          onClick={() => setStrictDetection(!strictDetection)}
+        >
+          <div className="mt-0.5 flex items-center justify-center">
+            <div className={`flex h-4 w-7 cursor-pointer items-center rounded-full p-0.5 transition-colors ${strictDetection ? "bg-primary" : "bg-muted-foreground/30"}`}>
+              <div className={`size-3 rounded-full bg-background shadow-sm transition-transform duration-200 ${strictDetection ? "translate-x-3" : "translate-x-0"}`} />
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-foreground">
+              Direct References Only
+            </span>
+            <p className="text-[0.625rem] leading-relaxed text-muted-foreground">
+              When enabled, the AI will only detect scriptures when you explicitly say the book and chapter (e.g., "John chapter 3"). It will stop trying to "guess" verses based on quotes or context. This is highly recommended when using the local Whisper model to prevent hallucinations from triggering random verses.
+            </p>
+          </div>
+        </label>
+      </div>
     </div>
   )
 }
@@ -397,6 +435,11 @@ function DisplayModeSection() {
 
 function ApiKeysSection() {
   const { deepgramApiKey, sttProvider } = useSettingsStore()
+  const [hasEnvKey, setHasEnvKey] = useState(false)
+
+  useEffect(() => {
+    invoke<boolean>("has_env_deepgram_key").then(setHasEnvKey).catch(() => {})
+  }, [])
 
   return (
     <div className="flex flex-col gap-6">
@@ -409,6 +452,10 @@ function ApiKeysSection() {
           {deepgramApiKey ? (
             <Badge variant="outline" className="text-[0.5rem]">
               Key configured
+            </Badge>
+          ) : hasEnvKey ? (
+            <Badge variant="outline" className="text-[0.5rem] border-primary/30 text-primary">
+              Found in .env
             </Badge>
           ) : (
             <Badge variant="outline" className="text-[0.5rem] text-muted-foreground">

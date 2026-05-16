@@ -40,6 +40,13 @@ use rhema_stt::{DeepgramClient, SttConfig, SttProvider, TranscriptEvent};
 /// 3. Fans audio out to both the level meter (emits `audio_level` events) and STT.
 /// 4. Receives transcripts and emits `transcript_partial` / `transcript_final` events.
 /// 5. On final transcripts, runs the detection pipeline and emits `verse_detected` events.
+#[tauri::command]
+pub fn has_env_deepgram_key() -> bool {
+    std::env::var("DEEPGRAM_API_KEY")
+        .map(|k| !k.is_empty())
+        .unwrap_or(false)
+}
+
 #[expect(clippy::too_many_lines, reason = "pipeline setup is inherently complex")]
 #[tauri::command]
 pub async fn start_transcription(
@@ -49,6 +56,7 @@ pub async fn start_transcription(
     device_id: Option<String>,
     gain: Option<f32>,
     provider: Option<String>,
+    strict_detection: Option<bool>,
 ) -> Result<(), String> {
     // ── 1. Guard: already running? ──────────────────────────────────────
     let (stt_active, audio_active) = {
@@ -323,6 +331,8 @@ pub async fn start_transcription(
     // Background detection channel — direct + reading mode, non-blocking
     let (detect_tx, mut detect_rx) = tokio::sync::mpsc::channel::<String>(16);
 
+    let strict_mode = strict_detection.unwrap_or(false);
+
     // [DIAG] Counters so we can see whether transcripts are being dropped
     // because the detection workers can't keep up. Logged every 25 sends
     // alongside current queue depth.
@@ -438,24 +448,26 @@ pub async fn start_transcription(
                         // Send every is_final fragment to FTS5 immediately.
                         // No sentence buffer — FTS5 is fast enough (~20-50ms)
                         // to run on every fragment without waiting for pauses.
-                        match semantic_tx.try_send(transcript.clone()) {
-                            Ok(()) => {
-                                let n = semantic_sent_evt.fetch_add(1, Ordering::Relaxed) + 1;
-                                if n % 25 == 0 {
-                                    let depth = semantic_tx.max_capacity() - semantic_tx.capacity();
-                                    let dropped = semantic_dropped_evt.load(Ordering::Relaxed);
-                                    log::info!(
-                                        "[QUEUE] semantic_tx sent={n} dropped={dropped} depth={depth}/{}",
-                                        semantic_tx.max_capacity()
+                        if !strict_mode {
+                            match semantic_tx.try_send(transcript.clone()) {
+                                Ok(()) => {
+                                    let n = semantic_sent_evt.fetch_add(1, Ordering::Relaxed) + 1;
+                                    if n % 25 == 0 {
+                                        let depth = semantic_tx.max_capacity() - semantic_tx.capacity();
+                                        let dropped = semantic_dropped_evt.load(Ordering::Relaxed);
+                                        log::info!(
+                                            "[QUEUE] semantic_tx sent={n} dropped={dropped} depth={depth}/{}",
+                                            semantic_tx.max_capacity()
+                                        );
+                                    }
+                                }
+                                Err(_) => {
+                                    let d = semantic_dropped_evt.fetch_add(1, Ordering::Relaxed) + 1;
+                                    let sent = semantic_sent_evt.load(Ordering::Relaxed);
+                                    log::warn!(
+                                        "[QUEUE] semantic_tx DROPPED (consumer behind) sent={sent} dropped={d}"
                                     );
                                 }
-                            }
-                            Err(_) => {
-                                let d = semantic_dropped_evt.fetch_add(1, Ordering::Relaxed) + 1;
-                                let sent = semantic_sent_evt.load(Ordering::Relaxed);
-                                log::warn!(
-                                    "[QUEUE] semantic_tx DROPPED (consumer behind) sent={sent} dropped={d}"
-                                );
                             }
                         }
 
