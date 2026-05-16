@@ -334,9 +334,10 @@ export function ThemeLibrary() {
                   isActive={theme.id === activeThemeId}
                   isRenaming={theme.id === renamingThemeId}
                   isSelected={theme.id === editingThemeId}
-                  onSelect={() =>
+                  onSelect={() => {
                     useBroadcastStore.getState().startEditing(theme.id)
-                  }
+                    useBroadcastStore.getState().setActiveTheme(theme.id)
+                  }}
                 />
               ))}
             </>
@@ -355,9 +356,10 @@ export function ThemeLibrary() {
                   isActive={theme.id === activeThemeId}
                   isRenaming={theme.id === renamingThemeId}
                   isSelected={theme.id === editingThemeId}
-                  onSelect={() =>
+                  onSelect={() => {
                     useBroadcastStore.getState().startEditing(theme.id)
-                  }
+                    useBroadcastStore.getState().setActiveTheme(theme.id)
+                  }}
                 />
               ))}
             </>

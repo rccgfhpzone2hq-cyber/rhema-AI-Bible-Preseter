@@ -173,13 +173,19 @@ function BroadcastCanvas() {
 
     const currentWindow = getCurrentWebviewWindow()
     logDebug("Listener registration started", { label: currentWindow.label })
+
+    let retryTimer: ReturnType<typeof setTimeout> | null = null
+
     const unlisten = currentWindow.listen<BroadcastPayload>("broadcast:verse-update", (event) => {
       latestData.current = event.payload
       preloadBackgroundImage(event.payload.theme)
       logDebug("Received broadcast:verse-update", {
         hasVerse: Boolean(event.payload.verse),
         themeId: event.payload.theme.id,
+        themeName: event.payload.theme.name,
       })
+      // Clear retry since we got data
+      if (retryTimer) { clearTimeout(retryTimer); retryTimer = null }
       draw()
       pushNdiBurst()
     })
@@ -209,13 +215,31 @@ function BroadcastCanvas() {
         // Command may not exist yet
       })
 
-    void currentWindow.emitTo("main", "broadcast:output-ready").then(() => {
-      logDebug("Sent broadcast:output-ready")
-    }).catch(() => {
-      console.warn("[broadcast-output] failed to send output-ready event")
+    // CRITICAL: Wait for listeners to be registered before telling the
+    // main window we're ready. Without this, the main window sends theme
+    // data before our listener is active and the event is lost.
+    void Promise.all([unlisten, unlistenNdiConfig]).then(() => {
+      logDebug("All listeners registered, sending output-ready")
+      void currentWindow.emitTo("main", "broadcast:output-ready").then(() => {
+        logDebug("Sent broadcast:output-ready")
+      }).catch((err) => {
+        console.warn("[broadcast-output] failed to send output-ready event", err)
+      })
+
+      // Safety net: if we still haven't received theme data after 2s,
+      // request it again (covers edge cases where output-ready was missed)
+      retryTimer = setTimeout(() => {
+        if (!latestData.current) {
+          logDebug("No theme data received after 2s, re-requesting...")
+          void currentWindow.emitTo("main", "broadcast:output-ready").catch((err) => {
+            console.warn("[broadcast-output] retry output-ready failed", err)
+          })
+        }
+      }, 2000)
     })
 
     return () => {
+      if (retryTimer) clearTimeout(retryTimer)
       unlisten.then((fn) => fn())
       unlistenNdiConfig.then((fn) => fn())
     }

@@ -184,10 +184,13 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
     const theme = s.themes.find((t) => t.id === themeId) ?? s.themes[0]
     if (!theme) return
 
+    console.debug(`[broadcast-store] syncBroadcastOutputFor("${outputId}"): sending theme "${theme.name}" (${theme.id}) to window "${label}"`)
     void emitTo(label, "broadcast:verse-update", {
       theme,
       verse: s.liveVerse,
-    }).catch(() => {})
+    }).catch((err) => {
+      console.warn(`[broadcast-store] emitTo("${label}") failed:`, err)
+    })
   },
   syncBroadcastOutput: () => {
     get().syncBroadcastOutputFor("main")
@@ -268,6 +271,7 @@ export const useBroadcastStore = create<BroadcastState>((set, get) => ({
       get().syncBroadcastOutput()
     } else {
       get().saveTheme(draftTheme)
+      set({ activeThemeId: draftTheme.id })
       get().syncBroadcastOutput()
     }
   },
@@ -303,7 +307,7 @@ export function hydrateBroadcastThemes(): Promise<void> {
       const altActiveId = (await store.get("altActiveThemeId")) as string | undefined
 
       const patch: Partial<BroadcastState> = {}
-      if (customThemes && Array.isArray(customThemes) && customThemes.length > 0) {
+      if (customThemes && Array.isArray(customThemes)) {
         patch.themes = [...BUILTIN_THEMES, ...customThemes]
       }
       if (activeId) patch.activeThemeId = activeId
@@ -331,6 +335,7 @@ export function hydrateBroadcastThemes(): Promise<void> {
 
       // Ensure broadcast outputs sync their state when they finish loading
       listen("broadcast:output-ready", () => {
+        console.debug("[broadcast-store] Received broadcast:output-ready, syncing themes to broadcast windows")
         useBroadcastStore.getState().syncBroadcastOutput()
       }).catch(console.error)
     } catch {
